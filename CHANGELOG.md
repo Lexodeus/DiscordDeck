@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 (2026-10-16)
+
+- Discord's icon in the Steam menu turns light blue while Discord is running, instead of glowing. The glow setting in the Quick Access menu is gone.
+
+### Fixes
+
+- Steam no longer freezes when you press the Steam button while Discord is on screen.
+
 ## 0.1.0 (2026-10-16)
 
 - Adds Discord to the Steam menu. Picking it opens the official Discord app or Vesktop (Discord with Vencord) installed from Discover, and starts it first if it isn't running.

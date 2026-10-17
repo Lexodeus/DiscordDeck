@@ -2,6 +2,8 @@
 
 Adds **Discord** to the Steam menu in Gaming Mode. It opens the official Discord flatpak (`com.discordapp.Discord`) or [Vesktop](https://github.com/Vencord/Vesktop) (Discord with Vencord, `dev.vencord.Vesktop`), installed from Discover in Desktop Mode, without adding it to your library as a non-Steam game.
 
+![The Discord entry in the Steam menu, and DiscordDeck's Quick Access settings](assets/screenshot.png)
+
 - Pick **Discord** in the Steam menu to open it. It starts the app first if it isn't running yet.
 - Press the Steam button and pick anything else to go back to Steam. Discord keeps running in the background, so you stay in voice chat.
 - Press Steam + X while Discord is open to type a message with Steam's keyboard. Press Enter or Send and it's typed into the text field selected in Discord, usually the message box of the open channel.

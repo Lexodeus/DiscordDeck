@@ -63,16 +63,12 @@ export const settings = {
   menuPosition: LAST_MENU_POSITION,
   app: null as DiscordApp | null,
   pressEnter: true,
-  // How brightly the Steam menu icon lights up while Discord runs, 0-100
-  indicatorBrightness: 50,
 };
 
 export async function loadSettings() {
   settings.menuPosition = await getSetting("menuPosition", LAST_MENU_POSITION);
   settings.app = await getSetting("app", null);
   settings.pressEnter = await getSetting("pressEnter", true);
-  settings.indicatorBrightness = await getSetting("indicatorBrightness", 50);
-  brightnessListeners.forEach((listener) => listener(settings.indicatorBrightness));
 }
 
 export async function setMenuPosition(position: number) {
@@ -88,24 +84,6 @@ export async function setApp(app: DiscordApp) {
 export async function setPressEnter(pressEnter: boolean) {
   settings.pressEnter = pressEnter;
   await setSetting("pressEnter", pressEnter);
-}
-
-const brightnessListeners = new Set<(brightness: number) => void>();
-
-export async function setIndicatorBrightness(brightness: number) {
-  settings.indicatorBrightness = brightness;
-  brightnessListeners.forEach((listener) => listener(brightness));
-  await setSetting("indicatorBrightness", brightness);
-}
-
-export function useIndicatorBrightness() {
-  const [current, setCurrent] = useState(settings.indicatorBrightness);
-  useEffect(() => {
-    brightnessListeners.add(setCurrent);
-    setCurrent(settings.indicatorBrightness);
-    return () => void brightnessListeners.delete(setCurrent);
-  }, []);
-  return current;
 }
 
 export const sendText = (text: string) => sendTextCall(text, settings.pressEnter);

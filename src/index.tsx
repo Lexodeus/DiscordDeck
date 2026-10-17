@@ -1,5 +1,5 @@
 import { definePlugin, routerHook } from "@decky/api";
-import { ButtonItem, DropdownItem, PanelSection, PanelSectionRow, SliderField, staticClasses, ToggleField } from "@decky/ui";
+import { ButtonItem, DropdownItem, PanelSection, PanelSectionRow, staticClasses, ToggleField } from "@decky/ui";
 import { useState } from "react";
 import { FaDiscord } from "react-icons/fa";
 import {
@@ -10,11 +10,9 @@ import {
   loadSettings,
   setApp,
   setMenuPosition,
-  setIndicatorBrightness,
   setPressEnter,
   settings,
   useDiscordState,
-  useIndicatorBrightness,
 } from "./backend";
 import { patchMenu } from "./menuPatch";
 import { DiscordPage, routePath, watchNavigation } from "./routes";
@@ -25,13 +23,12 @@ const menuPositionOptions = [
 ];
 
 // Same order as the backend's APPS
-const appLabels: Record<DiscordApp, string> = { discord: "Discord", vesktop: "Vesktop (Vencord)" };
+const appLabels: Record<DiscordApp, string> = { discord: "Discord", vesktop: "Vesktop" };
 
 function Content() {
   const { installed, app, appName, running, launching } = useDiscordState();
   const [menuPosition, setMenuPositionState] = useState(settings.menuPosition);
   const [pressEnter, setPressEnterState] = useState(settings.pressEnter);
-  const brightness = useIndicatorBrightness();
 
   let status = "Not running";
   if (!app || !installed.includes(app)) status = "Not installed. Install it from Discover in Desktop Mode.";
@@ -72,19 +69,6 @@ function Content() {
             setPressEnterState(checked);
             setPressEnter(checked);
           }}
-        />
-      </PanelSectionRow>
-      <PanelSectionRow>
-        <SliderField
-          label="Menu icon glow"
-          description="How brightly Discord's icon lights up in the Steam menu while it's running. 0 turns it off."
-          value={brightness}
-          min={0}
-          max={100}
-          step={10}
-          showValue
-          valueSuffix="%"
-          onChange={(value) => setIndicatorBrightness(value)}
         />
       </PanelSectionRow>
       <PanelSectionRow>

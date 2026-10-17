@@ -2,7 +2,7 @@
 import { afterPatch, findInReactTree, getReactRoot } from "@decky/ui";
 import { FC, ReactElement, ReactNode } from "react";
 import { FaDiscord } from "react-icons/fa";
-import { closeDiscord, settings, useDiscordState, useIndicatorBrightness } from "./backend";
+import { closeDiscord, settings, useDiscordState } from "./backend";
 import { isMenuEntry, placePositionedMenuItems } from "./menuOrder";
 import { routePath } from "./routes";
 
@@ -102,20 +102,9 @@ interface DiscordMenuItemProps extends MainMenuItemProps {
 
 const DiscordMenuItem: FC<DiscordMenuItemProps> = ({ MenuItemComponent, useIconAsProp, menuPosition: _, ...props }) => {
   const { running, appName } = useDiscordState();
-  const brightness = useIndicatorBrightness() / 100;
-  // Discord's blurple is too dark to glow against the menu on its own, so the icon itself lights up too
-  const icon = (
-    <FaDiscord
-      style={
-        running && brightness > 0
-          ? {
-              color: `color-mix(in srgb, #a5acff ${brightness * 100}%, currentColor)`,
-              filter: `drop-shadow(rgba(88, 101, 242, ${brightness}) 0px 0px 3px) drop-shadow(rgba(88, 101, 242, ${brightness}) 0px 0px 8px)`,
-            }
-          : {}
-      }
-    />
-  );
+  // A light blurple mixed 70/30 with the menu's icon grey. No CSS filter (e.g. a drop-shadow glow): on menu icons
+  // it freezes Steam's UI when the menu opens as Discord steps aside.
+  const icon = <FaDiscord style={running ? { color: "#abb1ec" } : {}} />;
 
   return (
     <MenuItemComponent
