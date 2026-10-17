@@ -1,6 +1,8 @@
 import asyncio
+import ctypes
 import json
 import os
+import signal
 
 import decky
 
@@ -63,6 +65,15 @@ def session_env() -> dict[str, str]:
         break
     env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={env['XDG_RUNTIME_DIR']}/bus")
     return env
+
+
+def die_with_parent():
+    """Runs in the child before exec. Decky can stop the backend without cleanup, which would leave it running."""
+    try:
+        PR_SET_PDEATHSIG = 1
+        ctypes.CDLL(None, use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+    except Exception:
+        pass
 
 
 async def run(*args: str, stdin: str | None = None) -> tuple[int, str]:
@@ -326,6 +337,7 @@ class Plugin:
         proc = await asyncio.create_subprocess_exec(
             "xprop", "-root", "-spy", "GAMESCOPECTRL_BASELAYER_APPID",
             env=session_env(), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+            preexec_fn=die_with_parent,
         )
         try:
             assert proc.stdout

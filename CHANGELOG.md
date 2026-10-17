@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 (2026-10-17)
+
+### Fixes
+
+- The D-pad works on Steam's keyboard every time after Steam + X. Before, it sometimes couldn't move between keys.
+- Leaving or reloading the plugin no longer leaves a background process running on the Steam Machine.
+
 ## 0.1.1 (2026-10-16)
 
 - Discord's icon in the Steam menu turns light blue while Discord is running, instead of glowing. The glow setting in the Quick Access menu is gone.

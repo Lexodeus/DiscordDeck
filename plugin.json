@@ -13,5 +13,5 @@
     "description": "Adds Discord to the Steam menu. Opens Discord or Vesktop (Vencord) installed from Discover without adding it as a non-Steam game.",
     "image": "https://raw.githubusercontent.com/Lexodeus/DiscordDeck/master/assets/screenshot.png"
   },
-  "Changelog": "## 0.1.1 (2026-10-16)\n\n- Discord's icon in the Steam menu turns light blue while Discord is running, instead of glowing. The glow setting in the Quick Access menu is gone.\n\n### Fixes\n\n- Steam no longer freezes when you press the Steam button while Discord is on screen."
+  "Changelog": "## 0.1.2 (2026-10-17)\n\n### Fixes\n\n- The D-pad works on Steam's keyboard every time after Steam + X. Before, it sometimes couldn't move between keys.\n- Leaving or reloading the plugin no longer leaves a background process running on the Steam Machine."
 }

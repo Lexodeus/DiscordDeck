@@ -5,6 +5,9 @@ import { hideDiscord, sendText, setSteamOverlayOpen, showDiscord, useDiscordStat
 
 export const routePath = "/discord";
 
+// Time for Steam to restore the controller config after Steam + X
+const CHORD_RELEASE_DELAY_MS = 400;
+
 interface History {
   location?: { pathname: string };
   listen(listener: (location: { pathname: string }, action: "PUSH" | "POP" | "REPLACE") => void): () => void;
@@ -90,11 +93,18 @@ export function watchNavigation() {
     showDiscord();
   }
   // Steam + X is sent to the focused app's in-game overlay, which Discord doesn't have, so Steam shows nothing.
-  // Open the message box instead.
+  // Open the message box instead. The message comes as the Steam button is released, when Steam also puts back
+  // Discord's controller config. Stepping aside before that lands leaves the controller on the game config, and
+  // the D-pad doesn't reach Steam's keyboard.
   let keyboardRequests: { unregister(): void } | undefined;
+  let composeTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     keyboardRequests = (SteamClient.Input as any).RegisterForUserKeyboardMessages(() => {
-      if (onDiscord) setComposing(true);
+      if (!onDiscord) return;
+      clearTimeout(composeTimer);
+      composeTimer = setTimeout(() => {
+        if (onDiscord) setComposing(true);
+      }, CHORD_RELEASE_DELAY_MS);
     });
   } catch (e) {
     console.error("[DiscordDeck] Couldn't listen for Steam + X:", e);
@@ -111,6 +121,7 @@ export function watchNavigation() {
   return () => {
     stopListening();
     keyboardRequests?.unregister();
+    clearTimeout(composeTimer);
     clearInterval(overlayTimer);
     setComposing(false);
   };
