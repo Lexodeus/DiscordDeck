@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 (2026-10-17)
+
+- The Quick Access menu now mentions under the Close button that you can also close Discord by highlighting it in the Steam menu and pressing X.
+
 ## 0.1.2 (2026-10-17)
 
 ### Fixes

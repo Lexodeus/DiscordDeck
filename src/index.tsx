@@ -44,7 +44,11 @@ function Content() {
       </PanelSectionRow>
       {running && (
         <PanelSectionRow>
-          <ButtonItem layout="below" onClick={() => closeDiscord()}>
+          <ButtonItem
+            layout="below"
+            description="You can also close it by highlighting Discord in the Steam menu and pressing X."
+            onClick={() => closeDiscord()}
+          >
             Close {appName}
           </ButtonItem>
         </PanelSectionRow>
