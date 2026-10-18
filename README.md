@@ -5,7 +5,7 @@ Adds **Discord** to the Steam menu in Gaming Mode. It opens the official Discord
 ![The Discord entry in the Steam menu, and DiscordDeck's Quick Access settings](assets/screenshot.png)
 
 - Pick **Discord** in the Steam menu to open it. It starts the app first if it isn't running yet.
-- Press the Steam button and pick anything else to go back to Steam. Discord keeps running in the background, so you stay in voice chat.
+- Press the Steam button and pick anything else to go back to Steam. Discord will keep running in the background until closed.
 - Press Steam + X while Discord is open to type a message with Steam's keyboard. Press Enter or Send and it's typed into the text field selected in Discord, usually the message box of the open channel.
 - Highlight Discord in the Steam menu and press X to close it, or use the Close button in the Quick Access menu.
 - The Quick Access menu also sets where Discord sits in the Steam menu, whether messages typed with Steam + X are sent right away or only put into the text field, and which flatpak to open: Discord or Vesktop.
@@ -41,7 +41,9 @@ Steam's on-screen keyboard only types into Steam's own UI, so the plugin shows a
 
 ## Privacy
 
-DiscordDeck is only a container for the Discord app. It starts Discord or Vesktop and shows its window in Gaming Mode; you log in and chat in the app itself, and DiscordDeck never sees your account or password. DiscordDeck doesn't store or send your data or credentials anywhere, and it makes no network connections of its own. The only things it saves are its own settings (which app to open, Discord's position in the Steam menu, and whether Steam + X messages are sent right away), on your device. Text you type with Steam + X is typed straight into Discord and isn't saved or logged.
+DiscordDeck is only a container for the Discord app. It starts Discord or Vesktop and shows its window in Gaming Mode; you log in and chat in the app itself, and DiscordDeck never sees your account or password. 
+
+DiscordDeck doesn't store or send your data or credentials anywhere, and it makes no network connections of its own. The only things it saves are its own settings (which app to open, Discord's position in the Steam menu, and whether Steam + X messages are sent right away), on your device. Text you type with Steam + X is typed straight into Discord and isn't saved or logged.
 
 ## Credits
 
