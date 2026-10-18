@@ -10,6 +10,14 @@ Adds **Discord** to the Steam menu in Gaming Mode. It opens the official Discord
 - Highlight Discord in the Steam menu and press X to close it, or use the Close button in the Quick Access menu.
 - The Quick Access menu also sets where Discord sits in the Steam menu, whether messages typed with Steam + X are sent right away or only put into the text field, and which flatpak to open: Discord or Vesktop.
 
+## Getting around in Discord
+
+Discord is a desktop app and doesn't support the controller's buttons, so you use a mouse pointer to move around in it:
+
+- **Controller:** hold the Steam button and move your thumb on the right trackpad to move the pointer. Keep holding Steam and press R2 to click (L2 to right-click).
+- **Mouse:** plug in a USB mouse or pair a Bluetooth mouse, and use it like on a desktop.
+- **Typing:** select a text field with the pointer, such as a channel's message box, then press Steam + X (see above). A USB or Bluetooth keyboard also types straight into Discord.
+
 ## How it works
 
 Gaming Mode's compositor (gamescope) only shows windows that belong to an app Steam launched. The plugin's backend starts Discord in your user session and tags its window with a placeholder app ID. While Steam is on the plugin's Discord page, the backend asks gamescope to show that window. When Steam navigates away, or brings a game to the front, it hands the screen back to Steam.
