@@ -18,10 +18,12 @@ You need:
 - Discord (Flathub `com.discordapp.Discord`) or Vesktop (Flathub `dev.vencord.Vesktop`)
 
 1. If you don't have Decky Loader yet, switch to Desktop Mode, download the installer from [decky.xyz](https://decky.xyz) and run it.
-2. In Desktop Mode, open Discover, search for Discord or Vesktop and install it. Open it once and log in, then switch back to Gaming Mode.
-3. Download `DiscordDeck.zip` from the [latest release](https://github.com/Lexodeus/DiscordDeck/releases/latest).
-4. Open the Quick Access menu, go to Decky and select the gear icon. Under **General**, turn on **Developer mode**.
-5. Open the **Developer** tab that appears, select **Install Plugin from ZIP File** and pick `DiscordDeck.zip`.
+2. In Desktop Mode, open Discover, search for Discord or Vesktop and install it.
+3. Still in Desktop Mode, open Discord or Vesktop and log in to your account. Logging in is easier with a mouse and keyboard here than in Gaming Mode, and the plugin opens the app already logged in.
+4. Maximize the app's window before you close it. The app remembers its window size, and a maximized window fills the screen properly in Gaming Mode.
+5. Download `DiscordDeck.zip` from the [latest release](https://github.com/Lexodeus/DiscordDeck/releases/latest), then switch back to Gaming Mode.
+6. Open the Quick Access menu, go to Decky and select the gear icon. Under **General**, turn on **Developer mode**.
+7. Open the **Developer** tab that appears, select **Install Plugin from ZIP File** and pick `DiscordDeck.zip`.
 
 ## Getting around in Discord
 
