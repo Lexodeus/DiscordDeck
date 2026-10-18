@@ -311,7 +311,6 @@ class Plugin:
         await run("xdotool", "type", "--delay", "12", "--file", "-", stdin=text)
         if press_enter:
             await run("xdotool", "key", "Return")
-        decky.logger.info(f"Typed {len(text)} characters into Discord")
 
     async def _focus(self, window: int):
         await run("xprop", "-id", str(window), "-f", "STEAM_GAME", "32c", "-set", "STEAM_GAME", str(GAMESCOPE_APP_ID))
