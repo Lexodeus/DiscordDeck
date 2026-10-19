@@ -80,10 +80,20 @@ export function placePositionedMenuItems(items: any[], siblings?: any[]) {
 
   const positioned = items.filter(isPositioned);
   for (const item of positioned) items.splice(items.indexOf(item), 1);
-  positioned.sort((a, b) => a.props.menuPosition - b.props.menuPosition);
+  // Entries asking for the same position get it in this order, and the rest go right below. An entry marked
+  // menuYieldsOnTie (a plugin that's just a container for an app) lets other plugins' entries go first.
+  positioned.sort(
+    (a, b) =>
+      a.props.menuPosition - b.props.menuPosition ||
+      Number(!!a.props.menuYieldsOnTie) - Number(!!b.props.menuYieldsOnTie) ||
+      String(a.key).localeCompare(String(b.key))
+  );
+  const wanted: number[] = [];
   for (const item of positioned) {
     const entries = items.flatMap((e, index) => (isMenuEntry(e) ? index : []));
-    const position = Math.max(item.props.menuPosition, 1);
+    const requested = Math.max(item.props.menuPosition, 1);
+    const position = requested + wanted.filter((p) => p === requested).length;
+    wanted.push(requested);
     const index =
       position <= entries.length ? entries[position - 1] : entries.length ? entries[entries.length - 1] + 1 : items.length;
     items.splice(index, 0, item);
