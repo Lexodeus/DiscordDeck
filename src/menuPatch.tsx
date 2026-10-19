@@ -102,8 +102,6 @@ export interface MenuEntryInfo {
   label: string;
   /** False when a theme hides it */
   visible: boolean;
-  /** Another plugin's entry that asked for this exact position, which it keeps over Discord */
-  claimed: boolean;
 }
 
 // The menu's entries and grouping divs are plain children of this element (see menuOrder.ts)
@@ -144,10 +142,8 @@ export function readMenuEntries(): MenuEntryInfo[] | undefined {
     const entries: MenuEntryInfo[] = [];
     rendered.forEach((e, index) => {
       if (!isMenuEntry(e) || e.key === "discord") return;
-      const position = entries.length + 1;
       entries.push({
-        position,
-        claimed: e.props.menuPosition === position && !e.props.menuYieldsOnTie,
+        position: entries.length + 1,
         label: items[index].textContent?.trim() || (typeof e.props.label === "string" ? e.props.label : "?"),
         visible: view.getComputedStyle(items[index]).display !== "none",
       });

@@ -19,8 +19,8 @@ import { DiscordPage, routePath, watchNavigation } from "./routes";
 
 /**
  * One option per spot among the entries you can see in the Steam menu, numbered from the top. Entries a theme hides
- * are skipped: Discord goes above the next visible entry either way. Another plugin asking for the same spot gets it,
- * and Discord goes right below.
+ * are skipped: Discord goes above the next visible entry either way. If another plugin using the shared menuOrder.ts
+ * asks for the same spot, it goes first and Discord goes right below.
  */
 function menuPositionOptions() {
   const entries = readMenuEntries()?.filter((entry) => entry.visible);
@@ -32,9 +32,7 @@ function menuPositionOptions() {
     ];
   }
   return [
-    // Numbered by where Discord shows up. Above a claimed entry Discord would land below it, the same spot as the
-    // next option, so there's no option for it.
-    ...entries.flatMap((entry, i) => (entry.claimed ? [] : [{ data: entry.position, label: `${i + 1}` }])),
+    ...entries.map((entry, i) => ({ data: entry.position, label: `${i + 1}` })),
     { data: LAST_MENU_POSITION, label: `${entries.length + 1}` },
   ];
 }
