@@ -110,10 +110,17 @@ function Content() {
 }
 
 export default definePlugin(() => {
-  loadSettings();
   const stopListeningForState = listenForState();
   routerHook.addRoute(routePath, DiscordPage, { exact: true });
-  const unpatchMenu = patchMenu();
+  // Add Discord to the Steam menu once its saved position is known. Right after a reload or update the backend
+  // takes a few seconds to answer, and until then the menu would show Discord last.
+  let unloaded = false;
+  let unpatchMenu = () => {};
+  loadSettings()
+    .catch((e) => console.error("[DiscordDeck] Couldn't load settings, using the defaults:", e))
+    .finally(() => {
+      if (!unloaded) unpatchMenu = patchMenu();
+    });
   const stopWatchingNavigation = watchNavigation();
 
   return {
@@ -123,6 +130,7 @@ export default definePlugin(() => {
     icon: <FaDiscord />,
     onDismount() {
       stopWatchingNavigation();
+      unloaded = true;
       unpatchMenu();
       routerHook.removeRoute(routePath);
       stopListeningForState();

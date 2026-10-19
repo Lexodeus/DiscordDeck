@@ -110,7 +110,8 @@ async def set_root_window_focus(window: int):
 
 async def park_pointer() -> tuple[int, int] | None:
     """
-    Moves the mouse pointer to the bottom-right corner, where Steam keeps it, and returns where it was.
+    Moves the mouse pointer to the bottom-right corner, where Steam keeps it, and returns where it was (None if it was
+    already there).
     Steam's menu opens at the left edge of the screen. If the pointer is still over that spot when Discord steps
     aside, the menu and Steam's main window fight over keyboard focus and Steam's UI hangs.
     """
@@ -119,8 +120,12 @@ async def park_pointer() -> tuple[int, int] | None:
         values = dict(line.split("=", 1) for line in location.splitlines() if "=" in line)
         _, size = await run("xdotool", "getdisplaygeometry")
         width, height = (int(v) for v in size.split())
-        await run("xdotool", "mousemove", str(width - 1), str(height - 1))
-        return int(values["X"]), int(values["Y"])
+        corner = (width - 1, height - 1)
+        position = (int(values["X"]), int(values["Y"]))
+        if position == corner:
+            return None
+        await run("xdotool", "mousemove", *map(str, corner))
+        return position
     except Exception:
         decky.logger.exception("Couldn't move the mouse pointer out of the way")
         return None
@@ -166,7 +171,8 @@ class Plugin:
             if app_id != GAMESCOPE_APP_ID:
                 continue
             if focused == [window]:
-                await park_pointer()
+                # Put the pointer back where it was when Discord is shown again
+                self.pointer = await park_pointer() or self.pointer
                 await set_root_window_focus(0)
             await run("xprop", "-id", str(window), "-remove", "STEAM_GAME")
             decky.logger.info(f"Released Discord window {window} left over from a previous run")

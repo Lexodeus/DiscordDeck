@@ -31,6 +31,13 @@ const isPositioned = (e: any) => typeof e?.props?.menuPosition === "number";
 const GROUP_KEY_PREFIX = "menu-plugins-group:";
 const END_GROUP_KEY = `${GROUP_KEY_PREFIX}end`;
 const isGroup = (e: any) => typeof e?.key === "string" && e.key.startsWith(GROUP_KEY_PREFIX);
+
+/** Whether the menu already has an entry with this key, including inside the groups made below */
+export function hasMenuItem(items: any[], key: string): boolean {
+  return items.some((e) =>
+    isGroup(e) ? hasMenuItem([...e.props.children[0], ...e.props.children[1]], key) : e?.key === key
+  );
+}
 const rendersNothing = (e: any) => e == null || typeof e === "boolean";
 
 /**
