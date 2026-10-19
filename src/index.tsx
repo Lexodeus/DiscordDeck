@@ -14,13 +14,27 @@ import {
   settings,
   useDiscordState,
 } from "./backend";
-import { patchMenu } from "./menuPatch";
+import { patchMenu, readMenuEntries } from "./menuPatch";
 import { DiscordPage, routePath, watchNavigation } from "./routes";
 
-const menuPositionOptions = [
-  ...Array.from({ length: 8 }, (_, i) => ({ data: i + 1, label: `${i + 1}` })),
-  { data: LAST_MENU_POSITION, label: "Last" },
-];
+/**
+ * One option per spot between the entries you can see in the Steam menu. Entries a theme hides are skipped: Discord
+ * goes above the next visible entry either way.
+ */
+function menuPositionOptions() {
+  const entries = readMenuEntries()?.filter((entry) => entry.visible);
+  if (!entries?.length) {
+    // The menu couldn't be read: plain numbers for Steam's 8 entries
+    return [
+      ...Array.from({ length: 8 }, (_, i) => ({ data: i + 1, label: `${i + 1}` })),
+      { data: LAST_MENU_POSITION, label: "Last" },
+    ];
+  }
+  return [
+    ...entries.map((entry, i) => ({ data: entry.position, label: `${i + 1}: above ${entry.label}` })),
+    { data: LAST_MENU_POSITION, label: `${entries.length + 1}: last` },
+  ];
+}
 
 // Same order as the backend's APPS
 const appLabels: Record<DiscordApp, string> = { discord: "Discord", vesktop: "Vesktop" };
@@ -29,6 +43,10 @@ function Content() {
   const { installed, app, appName, running, launching } = useDiscordState();
   const [menuPosition, setMenuPositionState] = useState(settings.menuPosition);
   const [pressEnter, setPressEnterState] = useState(settings.pressEnter);
+  // Read when the panel opens, so it matches the menu as it is now
+  const [options] = useState(menuPositionOptions);
+  // A saved position above a hidden entry shows as the next visible spot, where Discord actually appears
+  const selected = options.find((option) => option.data >= menuPosition) ?? options[options.length - 1];
 
   let status = "Not running";
   if (!app || !installed.includes(app)) status = "Not installed. Install it from Discover in Desktop Mode.";
@@ -78,8 +96,8 @@ function Content() {
       <PanelSectionRow>
         <DropdownItem
           label="Position in Steam menu"
-          rgOptions={menuPositionOptions}
-          selectedOption={menuPosition}
+          rgOptions={options}
+          selectedOption={selected.data}
           onChange={(option) => {
             setMenuPositionState(option.data);
             setMenuPosition(option.data);

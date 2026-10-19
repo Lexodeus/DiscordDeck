@@ -95,6 +95,65 @@ export function patchMenu() {
   };
 }
 
+export interface MenuEntryInfo {
+  /** Its position as menuPosition counts it: every entry in the menu other than Discord, from 1 */
+  position: number;
+  label: string;
+  /** False when a theme hides it */
+  visible: boolean;
+}
+
+// The menu's entries and grouping divs are plain children of this element (see menuOrder.ts)
+function findEntriesElementFiber(fiber: any, depth = 0): any {
+  for (let f = fiber; f && depth < 12; f = f.sibling) {
+    const children = f.memoizedProps?.children;
+    if (typeof f.type === "string" && Array.isArray(children) && Array.isArray(children[0])) return f;
+    const found = findEntriesElementFiber(f.child, depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * The Steam menu's entries as last rendered, with whether each is visible. Read from the rendered menu, so it
+ * includes other plugins' entries and reflects theme hiding. Undefined if the menu can't be read.
+ */
+export function readMenuEntries(): MenuEntryInfo[] | undefined {
+  try {
+    const reactTree = getReactRoot(document.getElementById("root") as HTMLElement);
+    const menuNode = findInReactTree(reactTree, (node) => node?.memoizedProps?.navID == "MainNavMenuContainer");
+    const fiber = findEntriesElementFiber(menuNode?.child);
+    const element = fiber?.stateNode as HTMLElement | undefined;
+    if (!element) return undefined;
+
+    // Elements in render order, with the plugin groups opened up
+    const flatten = (nodes: any[]): any[] =>
+      nodes.flatMap((e) =>
+        Array.isArray(e) ? flatten(e) : typeof e?.key === "string" && e.key.startsWith("menu-plugins-group:") ? flatten(e.props.children) : [e]
+      );
+    const rendered = flatten(fiber.memoizedProps.children).filter(
+      (e) => e?.props?.label && (e.props.onFocus || e.props.onGamepadFocus)
+    );
+    const items = Array.from(element.querySelectorAll<HTMLElement>("[role=menuitem]"));
+    if (items.length !== rendered.length) return undefined;
+
+    const view = element.ownerDocument.defaultView ?? window;
+    const entries: MenuEntryInfo[] = [];
+    rendered.forEach((e, index) => {
+      if (!isMenuEntry(e) || e.key === "discord") return;
+      entries.push({
+        position: entries.length + 1,
+        label: items[index].textContent?.trim() || (typeof e.props.label === "string" ? e.props.label : "?"),
+        visible: view.getComputedStyle(items[index]).display !== "none",
+      });
+    });
+    return entries;
+  } catch (e) {
+    log("Couldn't read the menu's entries:", e);
+    return undefined;
+  }
+}
+
 interface DiscordMenuItemProps extends MainMenuItemProps {
   menuPosition: number;
   MenuItemComponent: FC<MainMenuItemProps>;
@@ -103,8 +162,7 @@ interface DiscordMenuItemProps extends MainMenuItemProps {
 
 const DiscordMenuItem: FC<DiscordMenuItemProps> = ({ MenuItemComponent, useIconAsProp, menuPosition: _, ...props }) => {
   const { running, appName } = useDiscordState();
-  // A light blurple mixed 70/30 with the menu's icon grey. No CSS filter (e.g. a drop-shadow glow): on menu icons
-  // it freezes Steam's UI when the menu opens as Discord steps aside.
+  // While it's running: a light blurple mixed 70/30 with the menu's icon grey
   const icon = <FaDiscord style={running ? { color: "#abb1ec" } : {}} />;
 
   return (

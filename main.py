@@ -96,6 +96,13 @@ def parse_cardinals(xprop_line: str) -> list[int]:
     return [int(v) for v in xprop_line.split("=", 1)[1].replace(" ", "").split(",") if v.isdigit()]
 
 
+async def is_top_level(window: int) -> bool:
+    """Gamescope only shows top-level windows. An app can also have visible child windows drawn inside its own."""
+    _, out = await run("xwininfo", "-tree", "-id", str(window))
+    parent = next((line for line in out.splitlines() if line.strip().startswith("Parent window id:")), "")
+    return "(the root window)" in parent
+
+
 async def set_root_window_focus(window: int):
     await run("xprop", "-root", "-f", "GAMESCOPECTRL_BASELAYER_WINDOW", "32c",
               "-set", "GAMESCOPECTRL_BASELAYER_WINDOW", str(window))
@@ -308,6 +315,8 @@ class Plugin:
         # Skips the unmapped helper windows and the splash window shown while the client loads
         _, out = await run("xdotool", "search", "--onlyvisible", "--class", APPS[app][1])
         for window in reversed([w for w in out.split() if w.isdigit()]):
+            if not await is_top_level(int(window)):
+                continue
             _, geometry = await run("xdotool", "getwindowgeometry", "--shell", window)
             size = dict(line.split("=", 1) for line in geometry.splitlines() if "=" in line)
             if int(size.get("WIDTH", 0)) >= MIN_WINDOW_SIZE and int(size.get("HEIGHT", 0)) >= MIN_WINDOW_SIZE:
