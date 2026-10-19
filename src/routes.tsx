@@ -151,6 +151,9 @@ export function watchNavigation() {
     clearTimeout(composeTimer);
     clearInterval(overlayTimer);
     setComposing(false);
+    // If another plugin wrapped OpenSideMenu after this one, this wrapper stays in its chain. With onDiscord false it
+    // just passes calls on instead of waiting on this unloaded backend.
+    onDiscord = false;
     // Only undo the wrap if nothing wrapped it after this
     if (menuStore?.OpenSideMenu === openSideMenu) {
       if (hadOwnOpenSideMenu) menuStore.OpenSideMenu = originalOpenSideMenu;
