@@ -102,7 +102,6 @@ export function patchMenu() {
 export interface MenuEntryInfo {
   /** Its position as menuPosition counts it: every entry in the menu other than Discord, from 1 */
   position: number;
-  label: string;
   /** False when a theme hides it */
   visible: boolean;
 }
@@ -147,7 +146,6 @@ export function readMenuEntries(): MenuEntryInfo[] | undefined {
       if (!isMenuEntry(e) || e.key === "discord") return;
       entries.push({
         position: entries.length + 1,
-        label: items[index].textContent?.trim() || (typeof e.props.label === "string" ? e.props.label : "?"),
         visible: view.getComputedStyle(items[index]).display !== "none",
       });
     });

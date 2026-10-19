@@ -13,5 +13,5 @@
     "description": "Adds Discord to the Steam menu. Opens Discord or Vesktop (Vencord) installed from Discover without adding it as a non-Steam game.",
     "image": "https://raw.githubusercontent.com/Lexodeus/DiscordDeck/master/assets/screenshot.png"
   },
-  "Changelog": "## 0.1.3 (2026-10-17)\n\n- The Quick Access menu now mentions under the Close button that you can also close Discord by highlighting it in the Steam menu and pressing X."
+  "Changelog": "## 0.1.4 (2026-10-18)\n\n- Position in Steam menu now lists a number for every spot among the entries you can see, counting other plugins' entries and leaving out entries a theme hides.\n- If another plugin asks for the same spot, it keeps it and Discord goes right below.\n\n### Fixes\n\n- Pressing the Steam button or the ... button while Discord is on screen no longer freezes Steam. Discord now steps aside before the menu opens instead of right after.\n- CSS Loader themes that hide Steam menu entries (such as Main Menu Hide Tabs) hide the right entries again, wherever Discord sits in the menu.\n- After the plugin is reloaded or updated, Discord shows up once in the Steam menu, at its saved position."
 }

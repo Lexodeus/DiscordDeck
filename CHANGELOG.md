@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.4 (2026-10-18)
+
+- Position in Steam menu now lists a number for every spot among the entries you can see, counting other plugins' entries and leaving out entries a theme hides.
+- If another plugin asks for the same spot, it keeps it and Discord goes right below.
+
+### Fixes
+
+- Pressing the Steam button or the ... button while Discord is on screen no longer freezes Steam. Discord now steps aside before the menu opens instead of right after.
+- CSS Loader themes that hide Steam menu entries (such as Main Menu Hide Tabs) hide the right entries again, wherever Discord sits in the menu.
+- After the plugin is reloaded or updated, Discord shows up once in the Steam menu, at its saved position.
+
 ## 0.1.3 (2026-10-17)
 
 - The Quick Access menu now mentions under the Close button that you can also close Discord by highlighting it in the Steam menu and pressing X.
