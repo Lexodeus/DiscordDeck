@@ -109,10 +109,37 @@ export function watchNavigation() {
   } catch (e) {
     console.error("[DiscordDeck] Couldn't listen for Steam + X:", e);
   }
+  // Step aside before Steam's menu or Quick Access menu opens, not after. Opening a side menu while Discord is
+  // still in front and then handing the screen back can hang Steam's UI (seen with the physical Steam button).
+  // Every way of opening them (Steam button, ... button, ToggleSideMenu, OpenMainMenu) goes through OpenSideMenu.
+  const menuStore = mainWindow()?.MenuStore;
+  const originalOpenSideMenu = menuStore?.OpenSideMenu;
+  const hadOwnOpenSideMenu = !!menuStore && Object.prototype.hasOwnProperty.call(menuStore, "OpenSideMenu");
+  // Until then the 100 ms check below must not bring Discord back just because the menu isn't drawn yet
+  let menuOpeningUntil = 0;
+  const openSideMenu = function (this: any, ...args: any[]) {
+    // 0 means no side menu, i.e. closing
+    if (!onDiscord || overlayOpen || !args[0]) return originalOpenSideMenu.apply(this, args);
+    console.log("[DiscordDeck] Stepping aside before Steam's side menu opens");
+    overlayOpen = true;
+    menuOpeningUntil = Date.now() + 1500;
+    const steppedAside = setSteamOverlayOpen(true).catch((e) =>
+      console.error("[DiscordDeck] Couldn't step aside for Steam's menu:", e)
+    );
+    // Open the menu once Discord stepped aside, or after half a second if the backend doesn't answer
+    Promise.race([steppedAside, new Promise((resolve) => setTimeout(resolve, 500))]).then(() =>
+      originalOpenSideMenu.apply(this, args)
+    );
+  };
+  if (typeof originalOpenSideMenu === "function") menuStore.OpenSideMenu = openSideMenu;
+  else console.error("[DiscordDeck] Steam's MenuStore.OpenSideMenu wasn't found, menus open over Discord first.");
+
   const overlayTimer = setInterval(() => {
     if (!onDiscord) return;
     if (isKeyboardShowing()) setComposing(true);
     const open = composing || isSteamOverlayOpen();
+    if (open) menuOpeningUntil = 0;
+    else if (Date.now() < menuOpeningUntil) return;
     if (open !== overlayOpen) {
       overlayOpen = open;
       setSteamOverlayOpen(open);
@@ -124,6 +151,11 @@ export function watchNavigation() {
     clearTimeout(composeTimer);
     clearInterval(overlayTimer);
     setComposing(false);
+    // Only undo the wrap if nothing wrapped it after this
+    if (menuStore?.OpenSideMenu === openSideMenu) {
+      if (hadOwnOpenSideMenu) menuStore.OpenSideMenu = originalOpenSideMenu;
+      else delete menuStore.OpenSideMenu;
+    }
   };
 }
 
