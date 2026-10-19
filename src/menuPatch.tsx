@@ -69,7 +69,8 @@ export function patchMenu() {
             />
           );
         }
-        placePositionedMenuItems(menuItems);
+        const siblings = findInReactTree(ret, (node) => Array.isArray(node) && node.includes(menuItems)) as any[];
+        placePositionedMenuItems(menuItems, siblings);
 
         return ret;
       });
