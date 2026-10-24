@@ -17,6 +17,10 @@ export const showDiscord = callable<[], void>("show");
 export const hideDiscord = callable<[], void>("hide");
 export const closeDiscord = callable<[], void>("close");
 export const setSteamOverlayOpen = callable<[isOpen: boolean], void>("set_steam_overlay_open");
+export const prepareLayout = callable<
+  [steamId: string, serial: string, controllerType: string, replace: boolean],
+  { url: string | null; title: string | null }
+>("prepare_layout");
 const sendTextCall = callable<[text: string, pressEnter: boolean], void>("send_text");
 const getState = callable<[], DiscordState>("get_state");
 const getSetting = callable<[key: string, fallback: unknown], any>("get_setting");
@@ -63,12 +67,21 @@ export const settings = {
   menuPosition: LAST_MENU_POSITION,
   app: null as DiscordApp | null,
   pressEnter: true,
+  // Serial numbers of the controllers whose layout for Discord was already set up (or picked by you)
+  layoutControllers: [] as string[],
 };
 
 export async function loadSettings() {
   settings.menuPosition = await getSetting("menuPosition", LAST_MENU_POSITION);
   settings.app = await getSetting("app", null);
   settings.pressEnter = await getSetting("pressEnter", true);
+  settings.layoutControllers = await getSetting("layoutControllers", []);
+}
+
+export async function addLayoutController(serial: string) {
+  if (settings.layoutControllers.includes(serial)) return;
+  settings.layoutControllers = [...settings.layoutControllers, serial];
+  await setSetting("layoutControllers", settings.layoutControllers);
 }
 
 export async function setMenuPosition(position: number) {

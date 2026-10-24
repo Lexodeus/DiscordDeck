@@ -23,6 +23,10 @@ REFOCUS_DELAY = 0.3
 
 SETTINGS_FILE = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "settings.json")
 
+# Steam Input treats Discord's window as app GAMESCOPE_APP_ID without its top byte
+CONTROLLER_APP_ID = GAMESCOPE_APP_ID & 0xFFFFFF
+LAYOUT_TITLE = "DiscordDeck"
+
 
 def load_settings() -> dict:
     try:
@@ -74,6 +78,154 @@ def die_with_parent():
         ctypes.CDLL(None, use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
     except Exception:
         pass
+
+
+# Steam Input layouts are Valve KeyValues files: nested "key" "value" pairs where keys can repeat, so a block is
+# kept as a list of (key, value) pairs and a value is either a string or another list.
+KeyValues = list[tuple[str, "str | KeyValues"]]
+
+
+def parse_keyvalues(text: str) -> KeyValues:
+    tokens: list[str | None] = []  # None marks a brace, kept in order in braces
+    braces: list[str] = []
+    i = 0
+    while i < len(text):
+        c = text[i]
+        if c.isspace():
+            i += 1
+        elif text.startswith("//", i):
+            end = text.find("\n", i)
+            i = len(text) if end == -1 else end + 1
+        elif c in "{}":
+            tokens.append(None)
+            braces.append(c)
+            i += 1
+        elif c == '"':
+            end = text.index('"', i + 1)
+            tokens.append(text[i + 1:end])
+            i = end + 1
+        else:
+            end = i
+            while end < len(text) and not text[end].isspace() and text[end] not in '{}"':
+                end += 1
+            tokens.append(text[i:end])
+            i = end
+    pos = brace = 0
+
+    def block() -> KeyValues:
+        nonlocal pos, brace
+        pairs: KeyValues = []
+        while pos < len(tokens):
+            key = tokens[pos]
+            pos += 1
+            if key is None:
+                if braces[brace] == "}":
+                    brace += 1
+                    return pairs
+                raise ValueError("Block without a key")
+            value = tokens[pos]
+            pos += 1
+            if value is None:
+                if braces[brace] != "{":
+                    raise ValueError("Unexpected }")
+                brace += 1
+                pairs.append((key, block()))
+            else:
+                pairs.append((key, value))
+        return pairs
+
+    return block()
+
+
+def format_keyvalues(pairs: KeyValues, depth=0) -> str:
+    indent = "\t" * depth
+    lines = []
+    for key, value in pairs:
+        if isinstance(value, str):
+            lines.append(f'{indent}"{key}"\t\t"{value}"')
+        else:
+            lines += [f'{indent}"{key}"', f"{indent}{{", format_keyvalues(value, depth + 1), f"{indent}}}"]
+    return "\n".join(line for line in lines if line)
+
+
+def blocks(pairs: KeyValues, key: str) -> list[KeyValues]:
+    return [value for k, value in pairs if k.lower() == key.lower() and not isinstance(value, str)]
+
+
+def edit_button(mappings: KeyValues, button: str, edit) -> bool:
+    """Runs edit on every binding list of a button. Returns whether anything changed."""
+    changed = False
+    for group in blocks(mappings, "group"):
+        for inputs in blocks(group, "inputs"):
+            for binding in blocks(inputs, button):
+                for activators in blocks(binding, "activators"):
+                    for _, activator in activators:
+                        if isinstance(activator, str):
+                            continue
+                        for bindings in blocks(activator, "bindings"):
+                            before = list(bindings)
+                            edit(bindings)
+                            changed |= bindings != before
+    return changed
+
+
+def build_layout(template: str, template_url: str, url: str, steam_id: str) -> str:
+    """
+    Steam's Web Browser layout with three buttons changed for Discord:
+    - Menu sends Ctrl+K (quick switcher) instead of Ctrl+W, which hides Discord's window to the tray
+    - A presses only Enter (not also Space)
+    - Y goes Forward only (not also the S key)
+    """
+    (_, mappings), = parse_keyvalues(template)
+
+    def bound_keys(bindings: KeyValues):
+        return [value.split(",")[0].strip() for key, value in bindings if key == "binding" and isinstance(value, str)]
+
+    def remove(binding: str):
+        def edit(bindings: KeyValues):
+            bindings[:] = [(k, v) for k, v in bindings if not (k == "binding" and v.split(",")[0].strip() == binding)]
+        return edit
+
+    def menu(bindings: KeyValues):
+        if bound_keys(bindings) == ["key_press LEFT_CONTROL", "key_press W"]:
+            bindings[:] = [("binding", "key_press LEFT_CONTROL, Quick switcher"), ("binding", "key_press K")]
+
+    for button, edit in {"button_a": remove("key_press SPACE"), "button_y": remove("key_press S"),
+                         "button_menu": menu}.items():
+        if not edit_button(mappings, button, edit):
+            raise ValueError(f"Steam's Web Browser layout has changed, {button} wasn't found")
+    header = {
+        "title": LAYOUT_TITLE,
+        "description": "Layout for Discord, set up by DiscordDeck",
+        "creator": steam_id,
+        "progenitor": template_url,
+        "url": url,
+        "export_type": "unknown",
+    }
+    body = [(k, v) for k, v in mappings if k.lower() not in header and k.lower() != "localization"]
+    version = [(k, v) for k, v in body[:1] if k == "version"]
+    mappings[:] = version + list(header.items()) + body[len(version):]
+    return format_keyvalues([("controller_mappings", mappings)]) + "\n"
+
+
+def steam_dir() -> str:
+    return os.path.join(decky.DECKY_USER_HOME, ".local", "share", "Steam")
+
+
+def layout_path(steam_id: str, serial: str) -> str:
+    # Steam keeps the layout picked for an app per controller, in a file named after the controller's serial number
+    account_id = int(steam_id) - 76561197960265728
+    return os.path.join(steam_dir(), "steamapps", "common", "Steam Controller Configs", str(account_id), "config",
+                        str(CONTROLLER_APP_ID), f"{serial}.vdf")
+
+
+def layout_title(path: str) -> str | None:
+    try:
+        with open(path, encoding="utf-8") as f:
+            (_, mappings), = parse_keyvalues(f.read())
+        return next((v for k, v in mappings if k.lower() == "title" and isinstance(v, str)), None)
+    except (OSError, ValueError):
+        return None
 
 
 async def run(*args: str, stdin: str | None = None) -> tuple[int, str]:
@@ -219,6 +371,31 @@ class Plugin:
         if key == "app" and value != previous:
             # Don't leave the previous client's window on screen
             await self.hide()
+
+    async def prepare_layout(self, steam_id: str, serial: str, controller_type: str, replace: bool) -> dict:
+        """
+        Writes DiscordDeck's controller layout for one controller, and returns its URL to select it with.
+        A layout file that's already there is kept, so changes made to it in Steam stay. One with another title is
+        a different layout, saved by Steam for this controller: it's only replaced with replace set, and otherwise
+        its title is returned instead of a URL.
+        """
+        path = layout_path(steam_id, serial)
+        url = f"autosave://{path}"
+        if os.path.exists(path):
+            title = layout_title(path)
+            if title == LAYOUT_TITLE:
+                return {"url": url, "title": title}
+            if not replace:
+                return {"url": None, "title": title}
+        template_name = f"{controller_type}_webbrowser.vdf"
+        with open(os.path.join(steam_dir(), "controller_base", "templates", template_name), encoding="utf-8") as f:
+            layout = build_layout(f.read(), f"template://{template_name}", url, steam_id)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + ".tmp", "w", encoding="utf-8") as f:
+            f.write(layout)
+        os.replace(path + ".tmp", path)
+        decky.logger.info(f"Wrote the controller layout {path}")
+        return {"url": url, "title": LAYOUT_TITLE}
 
     async def show(self):
         """Bring Discord to the front, launching it first if needed."""

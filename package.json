@@ -1,6 +1,6 @@
 {
   "name": "discord-deck",
-  "version": "0.1.4",
+  "version": "0.2.0-1",
   "description": "Opens Vesktop (Vencord) or Discord from the Steam menu in Gaming Mode, without adding it as a non-Steam game",
   "type": "module",
   "scripts": {

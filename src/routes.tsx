@@ -2,6 +2,7 @@ import { DialogButton, Focusable, Router, TextField } from "@decky/ui";
 import { FC, useEffect, useRef, useState } from "react";
 import { FaDiscord } from "react-icons/fa";
 import { hideDiscord, sendText, setSteamOverlayOpen, showDiscord, useDiscordState } from "./backend";
+import { setUpLayouts } from "./controllerLayout";
 
 export const routePath = "/discord";
 
@@ -78,7 +79,11 @@ export function watchNavigation() {
   const stopListening = history.listen((location, action) => {
     if (location.pathname === routePath) {
       // Steam replaces the current entry to store focus state; only a real navigation should re-show Discord
-      if (!onDiscord || action !== "REPLACE") showDiscord();
+      if (!onDiscord || action !== "REPLACE") {
+        showDiscord();
+        // A controller connected since the plugin loaded gets DiscordDeck's layout too
+        setUpLayouts();
+      }
       onDiscord = true;
     } else if (onDiscord) {
       onDiscord = false;

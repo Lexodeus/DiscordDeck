@@ -14,6 +14,7 @@ import {
   settings,
   useDiscordState,
 } from "./backend";
+import { nameDiscordForControllerSettings, setUpLayouts, showButtonsModal } from "./controllerLayout";
 import { patchMenu, readMenuEntries } from "./menuPatch";
 import { DiscordPage, routePath, watchNavigation } from "./routes";
 
@@ -73,6 +74,15 @@ function Content() {
         </PanelSectionRow>
       )}
       <PanelSectionRow>
+        <ButtonItem
+          layout="below"
+          description="What each button does in Discord, and the controller layout Discord uses."
+          onClick={() => showButtonsModal()}
+        >
+          Controller buttons
+        </ButtonItem>
+      </PanelSectionRow>
+      <PanelSectionRow>
         <DropdownItem
           label="Flatpak"
           rgOptions={(Object.keys(appLabels) as DiscordApp[]).map((key) => ({
@@ -119,9 +129,12 @@ export default definePlugin(() => {
   loadSettings()
     .catch((e) => console.error("[DiscordDeck] Couldn't load settings, using the defaults:", e))
     .finally(() => {
-      if (!unloaded) unpatchMenu = patchMenu();
+      if (unloaded) return;
+      unpatchMenu = patchMenu();
+      setUpLayouts();
     });
   const stopWatchingNavigation = watchNavigation();
+  const unnameDiscord = nameDiscordForControllerSettings();
 
   return {
     name: "DiscordDeck",
@@ -130,6 +143,7 @@ export default definePlugin(() => {
     icon: <FaDiscord />,
     onDismount() {
       stopWatchingNavigation();
+      unnameDiscord();
       unloaded = true;
       unpatchMenu();
       routerHook.removeRoute(routePath);

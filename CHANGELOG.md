@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 (unreleased)
+
+- The first time it runs on a Steam Deck, DiscordDeck picks a controller layout for Discord: Steam's Web Browser layout, with the Menu button opening Discord's quick switcher (Ctrl+K) instead of hiding Discord, A pressing only Enter and Y going only Forward. A layout you picked for Discord yourself stays.
+- The Quick Access menu has a new **Controller buttons** list showing what each button does in Discord. From there you can edit the layout in Steam, or switch back to DiscordDeck's layout.
+- Steam's controller settings for Discord show the layout's name. Before, it was blank.
+
 ## 0.1.4 (2026-10-18)
 
 - Position in Steam menu now lists a number for every spot among the entries you can see, counting other plugins' entries and leaving out entries a theme hides.
