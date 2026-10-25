@@ -19,7 +19,7 @@ export const closeDiscord = callable<[], void>("close");
 export const setSteamOverlayOpen = callable<[isOpen: boolean], void>("set_steam_overlay_open");
 export const prepareLayout = callable<
   [steamId: string, serial: string, controllerType: string, replace: boolean],
-  { url: string | null; title: string | null }
+  { url: string | null; title: string | null; updated: boolean }
 >("prepare_layout");
 const sendTextCall = callable<[text: string, pressEnter: boolean], void>("send_text");
 const getState = callable<[], DiscordState>("get_state");

@@ -169,31 +169,68 @@ def edit_button(mappings: KeyValues, button: str, edit) -> bool:
     return changed
 
 
+def button_activators(mappings: KeyValues, button: str) -> list[KeyValues]:
+    return [activators for group in blocks(mappings, "group") for inputs in blocks(group, "inputs")
+            for binding in blocks(inputs, button) for activators in blocks(binding, "activators")]
+
+
+def bound_keys(activators: KeyValues) -> list[str]:
+    """Every key a button presses, from all its activators"""
+    return [value.split(",")[0].strip() for _, activator in activators if not isinstance(activator, str)
+            for bindings in blocks(activator, "bindings") for key, value in bindings
+            if key == "binding" and isinstance(value, str)]
+
+
+def full_press(binding: str, settings: KeyValues) -> tuple[str, KeyValues]:
+    return ("Full_Press", [("bindings", [("binding", binding)]), ("settings", settings)])
+
+
+# Steam presses and releases all of an activator's keys in the same instant, and Chromium apps like Discord ignore a
+# shortcut pressed that way. So Ctrl goes down 30 ms before K and comes up 30 ms after it, from separate activators.
+QUICK_SWITCHER: KeyValues = [
+    full_press("key_press LEFT_CONTROL, Quick switcher", [("delay_end", "30"), ("interruptable", "0")]),
+    full_press("key_press K", [("delay_start", "30"), ("interruptable", "0")]),
+]
+ESCAPE: KeyValues = [("Full_Press", [("bindings", [("binding", "key_press ESCAPE")])])]
+
+# What View (button_menu) presses in Steam's Web Browser layout, and in DiscordDeck 0.2.0's layout
+WEB_BROWSER_VIEW = ["key_press LEFT_CONTROL", "key_press W"]
+DISCORDDECK_0_2_0_VIEW = ["key_press LEFT_CONTROL", "key_press K"]
+
+
+def set_menu_buttons(mappings: KeyValues, view_keys: list[str]) -> bool:
+    """
+    Puts the quick switcher on Menu (☰, button_escape in layout files) and Escape on View (⧉, button_menu), if
+    they still press Escape and view_keys. Returns whether it changed them.
+    """
+    menu, view = button_activators(mappings, "button_escape"), button_activators(mappings, "button_menu")
+    if len(menu) != 1 or len(view) != 1 or bound_keys(menu[0]) != ["key_press ESCAPE"] or bound_keys(view[0]) != view_keys:
+        return False
+    menu[0][:] = QUICK_SWITCHER
+    view[0][:] = ESCAPE
+    return True
+
+
 def build_layout(template: str, template_url: str, url: str, steam_id: str) -> str:
     """
-    Steam's Web Browser layout with three buttons changed for Discord:
-    - Menu sends Ctrl+K (quick switcher) instead of Ctrl+W, which hides Discord's window to the tray
+    Steam's Web Browser layout with these buttons changed for Discord:
+    - Menu sends Ctrl+K (quick switcher) instead of Escape
+    - View sends Escape instead of Ctrl+W, which hides Discord's window to the tray
     - A presses only Enter (not also Space)
     - Y goes Forward only (not also the S key)
     """
     (_, mappings), = parse_keyvalues(template)
-
-    def bound_keys(bindings: KeyValues):
-        return [value.split(",")[0].strip() for key, value in bindings if key == "binding" and isinstance(value, str)]
 
     def remove(binding: str):
         def edit(bindings: KeyValues):
             bindings[:] = [(k, v) for k, v in bindings if not (k == "binding" and v.split(",")[0].strip() == binding)]
         return edit
 
-    def menu(bindings: KeyValues):
-        if bound_keys(bindings) == ["key_press LEFT_CONTROL", "key_press W"]:
-            bindings[:] = [("binding", "key_press LEFT_CONTROL, Quick switcher"), ("binding", "key_press K")]
-
-    for button, edit in {"button_a": remove("key_press SPACE"), "button_y": remove("key_press S"),
-                         "button_menu": menu}.items():
+    for button, edit in {"button_a": remove("key_press SPACE"), "button_y": remove("key_press S")}.items():
         if not edit_button(mappings, button, edit):
             raise ValueError(f"Steam's Web Browser layout has changed, {button} wasn't found")
+    if not set_menu_buttons(mappings, WEB_BROWSER_VIEW):
+        raise ValueError("Steam's Web Browser layout has changed, its Menu or View button wasn't found")
     header = {
         "title": LAYOUT_TITLE,
         "description": "Layout for Discord, set up by DiscordDeck",
@@ -206,6 +243,27 @@ def build_layout(template: str, template_url: str, url: str, steam_id: str) -> s
     version = [(k, v) for k, v in body[:1] if k == "version"]
     mappings[:] = version + list(header.items()) + body[len(version):]
     return format_keyvalues([("controller_mappings", mappings)]) + "\n"
+
+
+def update_layout(path: str) -> bool:
+    """
+    DiscordDeck 0.2.0 put the quick switcher on View instead of Menu, pressing Ctrl and K at once. Fixes that in a
+    layout it saved, unless those buttons were changed since. The rest of the layout stays as it is.
+    """
+    with open(path, encoding="utf-8") as f:
+        (_, mappings), = parse_keyvalues(f.read())
+    if not set_menu_buttons(mappings, DISCORDDECK_0_2_0_VIEW):
+        return False
+    write_file(path, format_keyvalues([("controller_mappings", mappings)]) + "\n")
+    decky.logger.info(f"Fixed the Menu and View buttons in {path}")
+    return True
+
+
+def write_file(path: str, text: str):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".tmp", "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(path + ".tmp", path)
 
 
 def steam_dir() -> str:
@@ -375,7 +433,8 @@ class Plugin:
     async def prepare_layout(self, steam_id: str, serial: str, controller_type: str, replace: bool) -> dict:
         """
         Writes DiscordDeck's controller layout for one controller, and returns its URL to select it with.
-        A layout file that's already there is kept, so changes made to it in Steam stay. One with another title is
+        A layout file that's already there is kept, so changes made to it in Steam stay (only 0.2.0's Menu and View
+        buttons get fixed, see update_layout). "updated" says whether the file changed. One with another title is
         a different layout, saved by Steam for this controller: it's only replaced with replace set, and otherwise
         its title is returned instead of a URL.
         """
@@ -384,18 +443,20 @@ class Plugin:
         if os.path.exists(path):
             title = layout_title(path)
             if title == LAYOUT_TITLE:
-                return {"url": url, "title": title}
+                try:
+                    updated = update_layout(path)
+                except (OSError, ValueError) as e:
+                    decky.logger.error(f"Couldn't check the controller layout {path}: {e}")
+                    updated = False
+                return {"url": url, "title": title, "updated": updated}
             if not replace:
-                return {"url": None, "title": title}
+                return {"url": None, "title": title, "updated": False}
         template_name = f"{controller_type}_webbrowser.vdf"
         with open(os.path.join(steam_dir(), "controller_base", "templates", template_name), encoding="utf-8") as f:
             layout = build_layout(f.read(), f"template://{template_name}", url, steam_id)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path + ".tmp", "w", encoding="utf-8") as f:
-            f.write(layout)
-        os.replace(path + ".tmp", path)
+        write_file(path, layout)
         decky.logger.info(f"Wrote the controller layout {path}")
-        return {"url": url, "title": LAYOUT_TITLE}
+        return {"url": url, "title": LAYOUT_TITLE, "updated": True}
 
     async def show(self):
         """Bring Discord to the front, launching it first if needed."""

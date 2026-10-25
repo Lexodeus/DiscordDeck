@@ -1,4 +1,4 @@
-import { ConfirmModal, DialogButton, Focusable, ModalRoot, Navigation, Router, showModal } from "@decky/ui";
+import { ConfirmModal, DialogButton, Field, Focusable, ModalRoot, Navigation, Router, showModal } from "@decky/ui";
 import { FC, useEffect, useState } from "react";
 import { addLayoutController, prepareLayout, settings } from "./backend";
 
@@ -51,6 +51,23 @@ async function selectLayout(controller: Controller, replace: boolean) {
   return null;
 }
 
+/** Fixes the Menu and View buttons in a layout saved by DiscordDeck 0.2.0, and reloads it if Discord uses it */
+async function fixOldLayout(controller: Controller) {
+  try {
+    const { url, updated } = await prepareLayout(
+      steamId()!,
+      controller.strSerialNumber,
+      LAYOUT_TEMPLATES[controller.eControllerType],
+      false
+    );
+    if (!updated || !url || (await currentLayout(controller))?.URL !== url) return;
+    store().SetActiveConfigForApp(CONTROLLER_APP_ID, controller.nControllerIndex, url, false);
+    console.log(`[DiscordDeck] Fixed the Menu and View buttons for controller ${controller.strSerialNumber}`);
+  } catch (e) {
+    console.error(`[DiscordDeck] Couldn't check the controller layout for ${controller.strSerialNumber}:`, e);
+  }
+}
+
 /**
  * Steam's controller settings page leaves a layout's name blank when the app has no name in Steam, which Discord's
  * placeholder app doesn't. While one of those pages is open, give it the name "Discord".
@@ -95,7 +112,9 @@ async function setUp(retries: number) {
   }
   for (const controller of controllers()) {
     const serial = controller.strSerialNumber;
-    if (!serial || !LAYOUT_TEMPLATES[controller.eControllerType] || settings.layoutControllers.includes(serial)) {
+    if (!serial || !LAYOUT_TEMPLATES[controller.eControllerType]) continue;
+    if (settings.layoutControllers.includes(serial)) {
+      await fixOldLayout(controller);
       continue;
     }
     try {
@@ -202,18 +221,14 @@ const ButtonsModal: FC<{ closeModal?: () => void }> = ({ closeModal }) => {
           DiscordDeck's layout is only made for the Steam Deck's controls. Pick a layout for this controller in Steam.
         </div>
       )}
-      <table style={{ width: "100%", borderSpacing: "0 6px", marginBottom: "12px" }}>
-        <tbody>
-          {shortcuts.map(([button, action]) => (
-            <tr key={button}>
-              <td style={{ fontWeight: "bold", paddingRight: "16px", whiteSpace: "nowrap", verticalAlign: "top" }}>
-                {button}
-              </td>
-              <td>{action}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Focusable rows, so the D-pad scrolls through the list */}
+      <div style={{ marginBottom: "12px" }}>
+        {shortcuts.map(([button, action]) => (
+          <Field key={button} label={button} focusable highlightOnFocus padding="compact" bottomSeparator="none">
+            <div style={{ textAlign: "right" }}>{action}</div>
+          </Field>
+        ))}
+      </div>
       {error && <div style={{ color: "#ff6b6b", marginBottom: "12px" }}>{error}</div>}
       <Focusable style={{ display: "flex", gap: "12px" }} flow-children="horizontal">
         {controller && <DialogButton onClick={() => editInSteam(close)}>Edit layout in Steam</DialogButton>}
