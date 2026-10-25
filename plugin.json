@@ -13,5 +13,5 @@
     "description": "Adds Discord to the Steam menu. Opens Discord or Vesktop (Vencord) installed from Discover without adding it as a non-Steam game.",
     "image": "https://raw.githubusercontent.com/Lexodeus/DiscordDeck/master/assets/screenshot.png"
   },
-  "Changelog": "## 0.2.0 (2026-10-24)\n\n- DiscordDeck now sets up a controller layout for Discord when you install it on a Steam Deck. The trackpads and sticks move the pointer and scroll, the Menu button opens Discord's quick switcher (Ctrl+K), and A presses Enter. If you picked a layout for Discord yourself, it stays.\n- The Quick Access menu has a new **Controller buttons** list showing what each button does in Discord. From there you can edit the layout in Steam, or switch back to DiscordDeck's layout."
+  "Changelog": "## 0.2.1 (2026-10-24)\n\n- The controller layout is now set up when Steam starts, too. In 0.2.0 it only happened after DiscordDeck was reloaded.\n- The Menu button (☰) opens Discord's quick switcher and View (⧉) presses Escape. In 0.2.0 these were swapped, and the quick switcher didn't open. A layout set up by 0.2.0 gets fixed automatically, and other changes you made to it stay.\n- The **Controller buttons** list scrolls with the D-pad."
 }

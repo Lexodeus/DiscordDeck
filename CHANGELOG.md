@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 (2026-10-24)
+
+- The controller layout is now set up when Steam starts, too. In 0.2.0 it only happened after DiscordDeck was reloaded.
+- The Menu button (☰) opens Discord's quick switcher and View (⧉) presses Escape. In 0.2.0 these were swapped, and the quick switcher didn't open. A layout set up by 0.2.0 gets fixed automatically, and other changes you made to it stay.
+- The **Controller buttons** list scrolls with the D-pad.
+
 ## 0.2.0 (2026-10-24)
 
 - DiscordDeck now sets up a controller layout for Discord when you install it on a Steam Deck. The trackpads and sticks move the pointer and scroll, the Menu button opens Discord's quick switcher (Ctrl+K), and A presses Enter. If you picked a layout for Discord yourself, it stays.
