@@ -9,8 +9,9 @@ import { addLayoutController, prepareLayout, settings } from "./backend";
  */
 const CONTROLLER_APP_ID = 4805443;
 
-// Steam only has a Web Browser layout for the Steam Deck's controls (eControllerType 4)
-const LAYOUT_TEMPLATES: Record<number, string> = { 4: "controller_neptune" };
+// Controllers DiscordDeck has a layout for, by eControllerType: the Steam Deck's controls (4) and the Steam Controller
+// from 2026 (10). Both are built from Steam's Web Browser layout for the Deck (see main.py).
+const LAYOUT_TEMPLATES: Record<number, string> = { 4: "controller_neptune", 10: "controller_triton" };
 
 interface Controller {
   nControllerIndex: number;
@@ -218,7 +219,7 @@ const ButtonsModal: FC<{ closeModal?: () => void }> = ({ closeModal }) => {
       {status && <div style={{ marginBottom: "12px", opacity: 0.8 }}>{status}</div>}
       {!supported && controller && (
         <div style={{ marginBottom: "12px", opacity: 0.8 }}>
-          DiscordDeck's layout is only made for the Steam Deck's controls. Pick a layout for this controller in Steam.
+          DiscordDeck's layout is only made for the Steam Deck and the Steam Controller. Pick a layout for this controller in Steam.
         </div>
       )}
       {/* Focusable rows, so the D-pad scrolls through the list */}

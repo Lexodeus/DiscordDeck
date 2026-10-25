@@ -27,7 +27,7 @@ You need:
 
 ## Getting around in Discord
 
-DiscordDeck sets up a controller layout for Discord when you install it, so there's nothing to set up on a Steam Deck. The buttons do this in Discord:
+DiscordDeck sets up a controller layout for Discord when you install it, so there's nothing to set up on a Steam Deck or with a Steam Controller. The buttons do this in Discord:
 
 | Button | In Discord |
 | --- | --- |
@@ -45,7 +45,7 @@ DiscordDeck sets up a controller layout for Discord when you install it, so ther
 
 **Controller buttons** in the Quick Access menu shows this list. Select **Edit layout in Steam** there to change a button; DiscordDeck keeps your changes. If you switch Discord to another layout in Steam, DiscordDeck leaves your choice alone, and **Use DiscordDeck's layout** in the same list switches back.
 
-The layout is only made for the Steam Deck's own controls. With another controller, pick a layout for Discord in Steam, or use a mouse:
+The layout is only made for the Steam Deck's own controls and the Steam Controller. With another controller, pick a layout for Discord in Steam, or use a mouse:
 
 - **Mouse:** plug in a USB mouse or pair a Bluetooth mouse, and use it like on a desktop.
 - **Typing:** select a text field, such as a channel's message box, then press Steam + X (see above). A USB or Bluetooth keyboard also types straight into Discord.

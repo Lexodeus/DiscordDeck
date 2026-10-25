@@ -211,9 +211,14 @@ def set_menu_buttons(mappings: KeyValues, view_keys: list[str]) -> bool:
     return True
 
 
-def build_layout(template: str, template_url: str, url: str, steam_id: str) -> str:
+# Steam only has a Web Browser layout for the Steam Deck. The Steam Controller (2026) has the same buttons and input
+# names, so its layout is built from the Deck's.
+WEB_BROWSER_TEMPLATES = {"controller_neptune": "controller_neptune", "controller_triton": "controller_neptune"}
+
+
+def build_layout(template: str, template_url: str, url: str, steam_id: str, controller_type: str) -> str:
     """
-    Steam's Web Browser layout with these buttons changed for Discord:
+    Steam's Web Browser layout, for controller_type, with these buttons changed for Discord:
     - Menu sends Ctrl+K (quick switcher) instead of Escape
     - View sends Escape instead of Ctrl+W, which hides Discord's window to the tray
     - A presses only Enter (not also Space)
@@ -240,6 +245,7 @@ def build_layout(template: str, template_url: str, url: str, steam_id: str) -> s
         "export_type": "unknown",
     }
     body = [(k, v) for k, v in mappings if k.lower() not in header and k.lower() != "localization"]
+    body = [(k, controller_type if k == "controller_type" else v) for k, v in body]
     version = [(k, v) for k, v in body[:1] if k == "version"]
     mappings[:] = version + list(header.items()) + body[len(version):]
     return format_keyvalues([("controller_mappings", mappings)]) + "\n"
@@ -451,9 +457,11 @@ class Plugin:
                 return {"url": url, "title": title, "updated": updated}
             if not replace:
                 return {"url": None, "title": title, "updated": False}
-        template_name = f"{controller_type}_webbrowser.vdf"
+        if controller_type not in WEB_BROWSER_TEMPLATES:
+            raise ValueError(f"No Web Browser layout to start from for {controller_type}")
+        template_name = f"{WEB_BROWSER_TEMPLATES[controller_type]}_webbrowser.vdf"
         with open(os.path.join(steam_dir(), "controller_base", "templates", template_name), encoding="utf-8") as f:
-            layout = build_layout(f.read(), f"template://{template_name}", url, steam_id)
+            layout = build_layout(f.read(), f"template://{template_name}", url, steam_id, controller_type)
         write_file(path, layout)
         decky.logger.info(f"Wrote the controller layout {path}")
         return {"url": url, "title": LAYOUT_TITLE, "updated": True}

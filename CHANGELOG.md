@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The controller layout is also set up for the Steam Controller, for example on a Steam Machine. Before, DiscordDeck only set it up for the Steam Deck's own controls.
+
 ## 0.2.1 (2026-10-24)
 
 - The controller layout is now set up when Steam starts, too. In 0.2.0 it only happened after DiscordDeck was reloaded.
