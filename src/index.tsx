@@ -14,7 +14,7 @@ import {
   settings,
   useDiscordState,
 } from "./backend";
-import { nameDiscordForControllerSettings, setUpLayouts, showButtonsModal } from "./controllerLayout";
+import { nameDiscordForControllerSettings, setUpLayouts, showButtonsModal, stopSettingUpLayouts } from "./controllerLayout";
 import { patchMenu, readMenuEntries } from "./menuPatch";
 import { DiscordPage, routePath, watchNavigation } from "./routes";
 
@@ -144,6 +144,7 @@ export default definePlugin(() => {
     onDismount() {
       stopWatchingNavigation();
       unnameDiscord();
+      stopSettingUpLayouts();
       unloaded = true;
       unpatchMenu();
       routerHook.removeRoute(routePath);

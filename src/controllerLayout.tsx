@@ -30,7 +30,12 @@ function controllers(): Controller[] {
   return store()?.m_controllerList ?? [];
 }
 
-const steamId = (): string | undefined => (window as any).App?.m_CurrentUser?.strSteamID;
+// While Steam starts, its user is account 0 (this ID) and has no controllers yet
+const NO_USER = "76561197960265728";
+const steamId = (): string | undefined => {
+  const id = (window as any).App?.m_CurrentUser?.strSteamID;
+  return id && id !== NO_USER ? id : undefined;
+};
 
 const currentLayout = (controller: Controller): Promise<LayoutConfig> =>
   (SteamClient.Input as any).GetConfigForAppAndController(CONTROLLER_APP_ID, controller.nControllerIndex);
@@ -77,33 +82,49 @@ export function nameDiscordForControllerSettings() {
 }
 
 let settingUp: Promise<void> | undefined;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+const RETRY_MS = 2000;
+const MAX_RETRIES = 30;
+
+async function setUp(retries: number) {
+  if (!store() || !steamId() || controllers().length == 0) {
+    // Steam is still starting: try again in a moment
+    if (retries > 0) retryTimer = setTimeout(() => setUpLayouts(retries - 1), RETRY_MS);
+    else console.error("[DiscordDeck] Steam's user or controllers weren't found, the controller layout wasn't set up.");
+    return;
+  }
+  for (const controller of controllers()) {
+    const serial = controller.strSerialNumber;
+    if (!serial || !LAYOUT_TEMPLATES[controller.eControllerType] || settings.layoutControllers.includes(serial)) {
+      continue;
+    }
+    try {
+      const layout = await currentLayout(controller);
+      if (layout?.URL?.startsWith("default://")) await selectLayout(controller, true);
+      await addLayoutController(serial);
+    } catch (e) {
+      console.error(`[DiscordDeck] Couldn't set up the controller layout for ${serial}:`, e);
+    }
+  }
+}
 
 /**
  * Picks DiscordDeck's layout for each controller that has nothing picked for Discord yet. Each controller is only set
- * up once, so a layout you pick yourself later stays.
+ * up once, so a layout you pick yourself later stays. Right after Steam starts it waits for Steam's user and
+ * controllers.
  */
-export function setUpLayouts() {
-  settingUp ??= (async () => {
-    try {
-      if (!store() || !steamId()) return;
-      for (const controller of controllers()) {
-        const serial = controller.strSerialNumber;
-        if (!serial || !LAYOUT_TEMPLATES[controller.eControllerType] || settings.layoutControllers.includes(serial)) {
-          continue;
-        }
-        try {
-          const layout = await currentLayout(controller);
-          if (layout?.URL?.startsWith("default://")) await selectLayout(controller, true);
-          await addLayoutController(serial);
-        } catch (e) {
-          console.error(`[DiscordDeck] Couldn't set up the controller layout for ${serial}:`, e);
-        }
-      }
-    } finally {
-      settingUp = undefined;
-    }
-  })();
+export function setUpLayouts(retries = MAX_RETRIES) {
+  clearTimeout(retryTimer);
+  // .finally, not try/finally: that could run before settingUp is assigned and leave it set for good
+  settingUp ??= setUp(retries).finally(() => {
+    settingUp = undefined;
+  });
   return settingUp;
+}
+
+export function stopSettingUpLayouts() {
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
 }
 
 const shortcuts: [string, string][] = [
