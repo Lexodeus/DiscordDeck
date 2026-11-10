@@ -61,9 +61,22 @@ With a controller that isn't supported, pick a layout for Discord in Steam (Quic
 - **Mouse:** plug in a USB mouse or pair a Bluetooth mouse, and use it like on a desktop.
 - **Typing:** select a text field, such as a channel's message box, then press Steam + X (see above). A USB or Bluetooth keyboard also types straight into Discord.
 
+### Uploading files
+
+Select **+** next to the message box, then **Upload a File**. Discord's file picker opens on top of Discord.
+
+1. Move the pointer with the right trackpad or stick, and click with R2 or by pressing the trackpad down. Double-click a folder to open it.
+2. Click the file once to select it, then click **Open** in the bottom-right corner. The file is attached to your message, ready to send.
+
+Don't press A or double-click the file: in this picker, both close it without choosing anything. View (⧉) presses Escape, which cancels.
+
+Discord can only open files in your **Downloads**, **Pictures** and **Videos** folders. Copy a file there first if it's somewhere else. Steam screenshots are in **Pictures → Screenshots** if Steam saves a copy of them there.
+
 ## How it works
 
 Gaming Mode's compositor (gamescope) only shows windows that belong to an app Steam launched. The plugin's backend starts Discord in your user session and tags its window with a placeholder app ID. While Steam is on the plugin's Discord page, the backend asks gamescope to show that window. When Steam navigates away, or brings a game to the front, it hands the screen back to Steam.
+
+Discord's file picker is a separate window, which gamescope doesn't show by itself (Gaming Mode has no system file picker for apps to use). While Discord is shown, the backend looks for dialogs Discord opens, shows them the same way, and switches back to Discord when they close.
 
 Steam's on-screen keyboard only types into Steam's own UI, so the plugin shows a message box on Steam's page instead and types the text into Discord with `xdotool`.
 

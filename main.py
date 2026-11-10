@@ -2,6 +2,7 @@ import asyncio
 import ctypes
 import json
 import os
+import re
 import signal
 
 import decky
@@ -9,7 +10,8 @@ import decky
 # Flatpak ID, X window class and display name of each supported client, in order of preference
 APPS = {
     "discord": ("com.discordapp.Discord", "^discord$", "Discord"),
-    "vesktop": ("dev.vencord.Vesktop", "^vesktop$", "Vesktop"),
+    # Vesktop 1.6 renamed its window class from "vesktop" to "dev.vencord.vesktop"
+    "vesktop": ("dev.vencord.Vesktop", "^(dev\\.vencord\\.)?vesktop$", "Vesktop"),
 }
 # Gamescope only lets Steam focus windows that carry a STEAM_GAME app ID, which windows
 # launched outside Steam don't have. This ID ("DISC") is not a real Steam app.
@@ -20,6 +22,8 @@ WINDOW_WAIT_SECONDS = 60
 MIN_WINDOW_SIZE = 400
 # Time for the client to take keyboard focus again after it's brought back to the front
 REFOCUS_DELAY = 0.3
+# How often to look for dialogs the client opened, such as the file picker from + → Upload a File
+DIALOG_POLL_SECONDS = 0.5
 
 SETTINGS_FILE = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, "settings.json")
 
@@ -319,6 +323,18 @@ async def is_top_level(window: int) -> bool:
     return "(the root window)" in parent
 
 
+async def visible_top_level_windows() -> list[int]:
+    _, out = await run("xdotool", "search", "--onlyvisible", "--maxdepth", "1", "--class", "")
+    return [int(w) for w in out.split() if w.isdigit()]
+
+
+async def transient_for(window: int) -> int | None:
+    """The window a dialog belongs to (WM_TRANSIENT_FOR), or None for other windows"""
+    _, out = await run("xprop", "-id", str(window), "WM_TRANSIENT_FOR")
+    match = re.search(r"window id # (0x[0-9a-fA-F]+)", out)
+    return int(match.group(1), 16) if match else None
+
+
 async def set_root_window_focus(window: int):
     await run("xprop", "-root", "-f", "GAMESCOPECTRL_BASELAYER_WINDOW", "32c",
               "-set", "GAMESCOPECTRL_BASELAYER_WINDOW", str(window))
@@ -362,10 +378,15 @@ class Plugin:
     # Message from the plugin's message box, typed into Discord once it's back in front
     pending_text: tuple[str, bool] | None = None
 
+    # Dialogs the shown client opened (newest last), such as its file picker. Gamescope only shows them once they're
+    # tagged like the client's window and focused.
+    dialogs: list[int] = []
+
     async def _main(self):
         self.lock = asyncio.Lock()
         self.show_task: asyncio.Task | None = None
         self.watch_task: asyncio.Task | None = None
+        self.dialog_task: asyncio.Task | None = None
         async with self.lock:
             await self._release_stale_windows()
 
@@ -606,18 +627,56 @@ class Plugin:
         decky.logger.info(f"Showing Discord window {window}")
         if not self.watch_task or self.watch_task.done():
             self.watch_task = asyncio.create_task(self._watch_steam_focus())
+        if not self.dialog_task or self.dialog_task.done():
+            self.dialog_task = asyncio.create_task(self._watch_dialogs())
 
     async def _unfocus(self, keep_watching=False):
         if not keep_watching and self.watch_task and not self.watch_task.done():
             self.watch_task.cancel()
+        if self.dialog_task and not self.dialog_task.done() and self.dialog_task is not asyncio.current_task():
+            self.dialog_task.cancel()
         window, self.shown_window = self.shown_window, None
+        dialogs, self.dialogs = self.dialogs, []
         if window is None:
             return
-        if await read_root_cardinals("GAMESCOPECTRL_BASELAYER_WINDOW") == [window]:
+        if (await read_root_cardinals("GAMESCOPECTRL_BASELAYER_WINDOW"))[:1] in ([window], *([d] for d in dialogs)):
             self.pointer = await park_pointer()
             await set_root_window_focus(0)
-        await run("xprop", "-id", str(window), "-remove", "STEAM_GAME")
+        # Dialogs still open get tagged again when Discord is shown again
+        for w in [*dialogs, window]:
+            await run("xprop", "-id", str(w), "-remove", "STEAM_GAME")
         decky.logger.info(f"Hid Discord window {window}")
+
+    async def _watch_dialogs(self):
+        """
+        Brings dialogs the client opens to the front, such as the file picker from + → Upload a File, and Discord
+        back once they close. Without a file chooser portal in Gaming Mode, Discord opens its own GTK file picker
+        window, which gamescope doesn't show by itself.
+        """
+        # Visible windows that aren't dialogs of the client, so they're only checked once
+        others: set[int] = set()
+        while True:
+            await asyncio.sleep(DIALOG_POLL_SECONDS)
+            async with self.lock:
+                if self.shown_window is None:
+                    return
+                visible = await visible_top_level_windows()
+                others &= set(visible)
+                dialogs = [d for d in self.dialogs if d in visible]
+                for window in visible:
+                    if window == self.shown_window or window in dialogs or window in others:
+                        continue
+                    # A dialog of Discord's window, or of one of its dialogs (e.g. "Replace this file?")
+                    if await transient_for(window) in (self.shown_window, *dialogs):
+                        await run("xprop", "-id", str(window), "-f", "STEAM_GAME", "32c",
+                                  "-set", "STEAM_GAME", str(GAMESCOPE_APP_ID))
+                        dialogs.append(window)
+                        decky.logger.info(f"Showing dialog window {window}")
+                    else:
+                        others.add(window)
+                if dialogs != self.dialogs:
+                    self.dialogs = dialogs
+                    await set_root_window_focus(dialogs[-1] if dialogs else self.shown_window)
 
     async def _watch_steam_focus(self):
         """Steps aside when Steam brings a game to the front, e.g. when it's resumed from the Steam menu."""
