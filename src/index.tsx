@@ -109,7 +109,7 @@ function Content() {
       <PanelSectionRow>
         <ToggleField
           label="Let screen share see games"
-          description={`Runs ${appName ?? "Discord"} next to your games, so the game shows up in Discord's screen share picker. Restarts ${appName ?? "Discord"} if it's running, which leaves any call you're in.`}
+          description="Your game shows up when you share your screen in Discord."
           checked={gameDisplay}
           onChange={(checked) => {
             setGameDisplayState(checked);
