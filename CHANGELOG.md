@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 (2026-11-19)
 
 - New setting, **Let screen share see games**: Discord runs next to your games, so you can pick the game in Discord's screen share. Before, the game wasn't listed and **Entire screen** was black. See Sharing your game in the README.
 
