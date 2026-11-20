@@ -67,6 +67,8 @@ export const settings = {
   menuPosition: LAST_MENU_POSITION,
   app: null as DiscordApp | null,
   pressEnter: true,
+  // Run the client on the X display Steam launches games on, so screen share can see them
+  gameDisplay: false,
   // Serial numbers of the controllers whose layout for Discord was already set up (or picked by you)
   layoutControllers: [] as string[],
 };
@@ -75,6 +77,7 @@ export async function loadSettings() {
   settings.menuPosition = await getSetting("menuPosition", LAST_MENU_POSITION);
   settings.app = await getSetting("app", null);
   settings.pressEnter = await getSetting("pressEnter", true);
+  settings.gameDisplay = await getSetting("gameDisplay", false);
   settings.layoutControllers = await getSetting("layoutControllers", []);
 }
 
@@ -97,6 +100,11 @@ export async function setApp(app: DiscordApp) {
 export async function setPressEnter(pressEnter: boolean) {
   settings.pressEnter = pressEnter;
   await setSetting("pressEnter", pressEnter);
+}
+
+export async function setGameDisplay(gameDisplay: boolean) {
+  settings.gameDisplay = gameDisplay;
+  await setSetting("gameDisplay", gameDisplay);
 }
 
 export const sendText = (text: string) => sendTextCall(text, settings.pressEnter);

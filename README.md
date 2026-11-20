@@ -72,11 +72,19 @@ Don't press A or double-click the file: in this picker, both close it without ch
 
 Discord can only open files in your **Downloads**, **Pictures** and **Videos** folders. Copy a file there first if it's somewhere else. Steam screenshots are in **Pictures → Screenshots** if Steam saves a copy of them there.
 
+### Sharing your game
+
+Turn on **Let screen share see games** in DiscordDeck's Quick Access settings. Then start a screen share in Discord and pick the game's window. With the setting off, the game isn't in the list, and **Entire screen** shows only black.
+
+Turning the setting on or off restarts Discord if it's running, which leaves any call you're in. Choose the game's sound under **Audio Sources** when you go live (Vesktop).
+
 ## How it works
 
 Gaming Mode's compositor (gamescope) only shows windows that belong to an app Steam launched. The plugin's backend starts Discord in your user session and tags its window with a placeholder app ID. While Steam is on the plugin's Discord page, the backend asks gamescope to show that window. When Steam navigates away, or brings a game to the front, it hands the screen back to Steam.
 
 Discord's file picker is a separate window, which gamescope doesn't show by itself (Gaming Mode has no system file picker for apps to use). While Discord is shown, the backend looks for dialogs Discord opens, shows them the same way, and switches back to Discord when they close.
+
+Gaming Mode has two X displays: Steam's, where the backend starts Discord, and one Steam launches games on. Discord can only share windows on its own display. **Let screen share see games** starts Discord on the games' display instead, and also sets Discord as that display's focused window while it's shown, so the game's window doesn't sit above it and take the pointer. Some apps (Qt ones such as chiaki-ng) only set the newer `_NET_WM_NAME` title, and Discord's picker skips windows without a `WM_NAME`, so the backend copies the title over.
 
 Steam's on-screen keyboard only types into Steam's own UI, so the plugin shows a message box on Steam's page instead and types the text into Discord with `xdotool`.
 

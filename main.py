@@ -46,8 +46,8 @@ def save_settings(values: dict):
         json.dump(values, f, indent=2)
 
 
-def session_env() -> dict[str, str]:
-    """Environment for talking to Steam's X display and the user's systemd session."""
+def session_env(display: str | None = None) -> dict[str, str]:
+    """Environment for talking to Steam's X display (or another one) and the user's systemd session."""
     # Decky's bundled libraries leak in through LD_LIBRARY_PATH and break system binaries
     env = {k: v for k, v in os.environ.items() if not k.startswith(("LD_", "PYTHON", "_MEI"))}
     env.setdefault("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")
@@ -72,7 +72,34 @@ def session_env() -> dict[str, str]:
                 env[key] = steam_env[key]
         break
     env.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={env['XDG_RUNTIME_DIR']}/bus")
+    if display:
+        env["DISPLAY"] = display
     return env
+
+
+def x_displays() -> list[str]:
+    """Gamescope starts two Xwayland displays: Steam's (:0) and the one Steam launches games on (:1)"""
+    try:
+        names = os.listdir("/tmp/.X11-unix")
+    except OSError:
+        return []
+    return sorted(f":{name[1:]}" for name in names if re.fullmatch(r"X\d+", name))
+
+
+def game_display() -> str | None:
+    """The display Steam launches games on: the one that isn't Steam's"""
+    steam = session_env()["DISPLAY"]
+    return next((d for d in x_displays() if d != steam), None)
+
+
+# Display the client runs on, None for Steam's. Its windows are only visible to X commands run on that display.
+# Gamescope's root window properties (focus, focusable windows) stay on Steam's display, and cover both.
+client_display: str | None = None
+
+
+def update_client_display():
+    global client_display
+    client_display = game_display() if load_settings().get("gameDisplay") else None
 
 
 def die_with_parent():
@@ -296,13 +323,18 @@ def layout_title(path: str) -> str | None:
         return None
 
 
-async def run(*args: str, stdin: str | None = None) -> tuple[int, str]:
+async def run(*args: str, stdin: str | None = None, display: str | None = None) -> tuple[int, str]:
     proc = await asyncio.create_subprocess_exec(
-        *args, env=session_env(), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+        *args, env=session_env(display), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
         stdin=asyncio.subprocess.PIPE if stdin is not None else asyncio.subprocess.DEVNULL,
     )
     out, _ = await proc.communicate(stdin.encode() if stdin is not None else None)
     return proc.returncode or 0, out.decode(errors="replace").strip()
+
+
+async def client_run(*args: str, stdin: str | None = None) -> tuple[int, str]:
+    """Runs an X command on the client's display, for its windows and its keyboard and pointer"""
+    return await run(*args, stdin=stdin, display=client_display)
 
 
 async def read_root_cardinals(prop: str) -> list[int]:
@@ -318,45 +350,68 @@ def parse_cardinals(xprop_line: str) -> list[int]:
 
 async def is_top_level(window: int) -> bool:
     """Gamescope only shows top-level windows. An app can also have visible child windows drawn inside its own."""
-    _, out = await run("xwininfo", "-tree", "-id", str(window))
+    _, out = await client_run("xwininfo", "-tree", "-id", str(window))
     parent = next((line for line in out.splitlines() if line.strip().startswith("Parent window id:")), "")
     return "(the root window)" in parent
 
 
 async def visible_top_level_windows() -> list[int]:
-    _, out = await run("xdotool", "search", "--onlyvisible", "--maxdepth", "1", "--class", "")
+    _, out = await client_run("xdotool", "search", "--onlyvisible", "--maxdepth", "1", "--class", "")
     return [int(w) for w in out.split() if w.isdigit()]
 
 
 async def transient_for(window: int) -> int | None:
     """The window a dialog belongs to (WM_TRANSIENT_FOR), or None for other windows"""
-    _, out = await run("xprop", "-id", str(window), "WM_TRANSIENT_FOR")
+    _, out = await client_run("xprop", "-id", str(window), "WM_TRANSIENT_FOR")
     match = re.search(r"window id # (0x[0-9a-fA-F]+)", out)
     return int(match.group(1), 16) if match else None
 
 
+async def name_untitled_windows():
+    """
+    Discord's screen share picker (Chromium) lists windows by their WM_NAME and skips those without one. Some apps,
+    such as Qt ones like chiaki-ng, only set the newer _NET_WM_NAME, so copy that over for windows on the client's
+    display. Only used on the game display, where those windows are games.
+    """
+    for window in await visible_top_level_windows():
+        _, out = await client_run("xprop", "-id", str(window), "WM_NAME", "_NET_WM_NAME")
+        names = dict(re.findall(r'^(WM_NAME|_NET_WM_NAME)\([A-Z0-9_]+\) = "(.*)"$', out, re.M))
+        if not names.get("WM_NAME") and names.get("_NET_WM_NAME"):
+            title = names["_NET_WM_NAME"].replace('\\"', '"').replace("\\\\", "\\")
+            await client_run("xprop", "-id", str(window), "-f", "WM_NAME", "8u", "-set", "WM_NAME", title)
+            decky.logger.info(f"Gave window {window} the title {title!r} for screen share")
+
+
 async def set_root_window_focus(window: int):
-    await run("xprop", "-root", "-f", "GAMESCOPECTRL_BASELAYER_WINDOW", "32c",
-              "-set", "GAMESCOPECTRL_BASELAYER_WINDOW", str(window))
+    """
+    Steam's display decides what gamescope shows. Each display also picks its own focused window, which it keeps on
+    top of its other windows, so on the game display the client is set there too: otherwise the game's window stays
+    above it and gets the pointer (hiding the cursor and taking clicks) while the client is shown.
+    """
+    for display in (None, client_display) if client_display else (None,):
+        await run("xprop", "-root", "-f", "GAMESCOPECTRL_BASELAYER_WINDOW", "32c",
+                  "-set", "GAMESCOPECTRL_BASELAYER_WINDOW", str(window), display=display)
 
 
 async def park_pointer() -> tuple[int, int] | None:
     """
     Moves the mouse pointer to the bottom-right corner, where Steam keeps it, and returns where it was (None if it was
-    already there).
+    already there). The position is read on the client's display; it's parked on both displays.
     Steam's menu opens at the left edge of the screen. If the pointer is still over that spot when Discord steps
     aside, the menu and Steam's main window fight over keyboard focus and Steam's UI hangs.
     """
     try:
-        _, location = await run("xdotool", "getmouselocation", "--shell")
+        _, location = await client_run("xdotool", "getmouselocation", "--shell")
         values = dict(line.split("=", 1) for line in location.splitlines() if "=" in line)
-        _, size = await run("xdotool", "getdisplaygeometry")
+        _, size = await client_run("xdotool", "getdisplaygeometry")
         width, height = (int(v) for v in size.split())
         corner = (width - 1, height - 1)
         position = (int(values["X"]), int(values["Y"]))
+        if client_display:
+            await run("xdotool", "mousemove", *map(str, corner))
         if position == corner:
             return None
-        await run("xdotool", "mousemove", *map(str, corner))
+        await client_run("xdotool", "mousemove", *map(str, corner))
         return position
     except Exception:
         decky.logger.exception("Couldn't move the mouse pointer out of the way")
@@ -387,6 +442,7 @@ class Plugin:
         self.show_task: asyncio.Task | None = None
         self.watch_task: asyncio.Task | None = None
         self.dialog_task: asyncio.Task | None = None
+        update_client_display()
         async with self.lock:
             await self._release_stale_windows()
 
@@ -411,7 +467,12 @@ class Plugin:
                 # Put the pointer back where it was when Discord is shown again
                 self.pointer = await park_pointer() or self.pointer
                 await set_root_window_focus(0)
-            await run("xprop", "-id", str(window), "-remove", "STEAM_GAME")
+            # The window may be on either display (see the gameDisplay setting). Window IDs are per display, so only
+            # untag the window that has DiscordDeck's app ID.
+            for display in x_displays():
+                _, out = await run("xprop", "-id", str(window), "STEAM_GAME", display=display)
+                if parse_cardinals(out) == [GAMESCOPE_APP_ID]:
+                    await run("xprop", "-id", str(window), "-remove", "STEAM_GAME", display=display)
             decky.logger.info(f"Released Discord window {window} left over from a previous run")
 
     async def _installed_apps(self) -> list[str]:
@@ -456,6 +517,14 @@ class Plugin:
         if key == "app" and value != previous:
             # Don't leave the previous client's window on screen
             await self.hide()
+        if key == "gameDisplay" and value != previous:
+            # A running client stays on the display it started on, so restart it on the new one next time it's shown
+            app = await self._active_app()
+            await self.hide()
+            update_client_display()
+            if app and app in await self._running_apps():
+                await run("flatpak", "kill", APPS[app][0])
+            await self.emit_state()
 
     async def prepare_layout(self, steam_id: str, serial: str, controller_type: str, replace: bool) -> dict:
         """
@@ -572,7 +641,8 @@ class Plugin:
 
     async def _launch(self, app: str):
         flatpak_id = APPS[app][0]
-        env = session_env()
+        update_client_display()
+        env = session_env(client_display)
         decky.logger.info(f"Launching {flatpak_id} on {env['DISPLAY']}")
         # Run it in the user's systemd session so it outlives the plugin and Decky restarts
         code, out = await run(
@@ -588,11 +658,11 @@ class Plugin:
         if app is None:
             return None
         # Skips the unmapped helper windows and the splash window shown while the client loads
-        _, out = await run("xdotool", "search", "--onlyvisible", "--class", APPS[app][1])
+        _, out = await client_run("xdotool", "search", "--onlyvisible", "--class", APPS[app][1])
         for window in reversed([w for w in out.split() if w.isdigit()]):
             if not await is_top_level(int(window)):
                 continue
-            _, geometry = await run("xdotool", "getwindowgeometry", "--shell", window)
+            _, geometry = await client_run("xdotool", "getwindowgeometry", "--shell", window)
             size = dict(line.split("=", 1) for line in geometry.splitlines() if "=" in line)
             if int(size.get("WIDTH", 0)) >= MIN_WINDOW_SIZE and int(size.get("HEIGHT", 0)) >= MIN_WINDOW_SIZE:
                 return int(window)
@@ -613,16 +683,19 @@ class Plugin:
         (text, press_enter), self.pending_text = self.pending_text, None
         await asyncio.sleep(REFOCUS_DELAY)
         # Typed through XTEST into whatever has keyboard focus, which is the window gamescope focused
-        await run("xdotool", "type", "--delay", "12", "--file", "-", stdin=text)
+        await client_run("xdotool", "type", "--delay", "12", "--file", "-", stdin=text)
         if press_enter:
-            await run("xdotool", "key", "Return")
+            await client_run("xdotool", "key", "Return")
 
     async def _focus(self, window: int):
-        await run("xprop", "-id", str(window), "-f", "STEAM_GAME", "32c", "-set", "STEAM_GAME", str(GAMESCOPE_APP_ID))
+        await client_run("xprop", "-id", str(window), "-f", "STEAM_GAME", "32c",
+                         "-set", "STEAM_GAME", str(GAMESCOPE_APP_ID))
         await set_root_window_focus(window)
         self.shown_window = window
+        if client_display:
+            await name_untitled_windows()
         if self.pointer:
-            await run("xdotool", "mousemove", *map(str, self.pointer))
+            await client_run("xdotool", "mousemove", *map(str, self.pointer))
             self.pointer = None
         decky.logger.info(f"Showing Discord window {window}")
         if not self.watch_task or self.watch_task.done():
@@ -644,7 +717,7 @@ class Plugin:
             await set_root_window_focus(0)
         # Dialogs still open get tagged again when Discord is shown again
         for w in [*dialogs, window]:
-            await run("xprop", "-id", str(w), "-remove", "STEAM_GAME")
+            await client_run("xprop", "-id", str(w), "-remove", "STEAM_GAME")
         decky.logger.info(f"Hid Discord window {window}")
 
     async def _watch_dialogs(self):
@@ -668,8 +741,8 @@ class Plugin:
                         continue
                     # A dialog of Discord's window, or of one of its dialogs (e.g. "Replace this file?")
                     if await transient_for(window) in (self.shown_window, *dialogs):
-                        await run("xprop", "-id", str(window), "-f", "STEAM_GAME", "32c",
-                                  "-set", "STEAM_GAME", str(GAMESCOPE_APP_ID))
+                        await client_run("xprop", "-id", str(window), "-f", "STEAM_GAME", "32c",
+                                         "-set", "STEAM_GAME", str(GAMESCOPE_APP_ID))
                         dialogs.append(window)
                         decky.logger.info(f"Showing dialog window {window}")
                     else:

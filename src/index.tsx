@@ -9,6 +9,7 @@ import {
   listenForState,
   loadSettings,
   setApp,
+  setGameDisplay,
   setMenuPosition,
   setPressEnter,
   settings,
@@ -45,6 +46,7 @@ function Content() {
   const { installed, app, appName, running, launching } = useDiscordState();
   const [menuPosition, setMenuPositionState] = useState(settings.menuPosition);
   const [pressEnter, setPressEnterState] = useState(settings.pressEnter);
+  const [gameDisplay, setGameDisplayState] = useState(settings.gameDisplay);
   // Read when the panel opens, so it matches the menu as it is now
   const [options] = useState(menuPositionOptions);
   // A saved position above a hidden entry shows as the next visible spot, where Discord actually appears
@@ -101,6 +103,17 @@ function Content() {
           onChange={(checked) => {
             setPressEnterState(checked);
             setPressEnter(checked);
+          }}
+        />
+      </PanelSectionRow>
+      <PanelSectionRow>
+        <ToggleField
+          label="Let screen share see games"
+          description={`Runs ${appName ?? "Discord"} next to your games, so the game shows up in Discord's screen share picker. Restarts ${appName ?? "Discord"} if it's running, which leaves any call you're in.`}
+          checked={gameDisplay}
+          onChange={(checked) => {
+            setGameDisplayState(checked);
+            setGameDisplay(checked);
           }}
         />
       </PanelSectionRow>

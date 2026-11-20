@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- New setting, **Let screen share see games**: Discord runs next to your games, so you can pick the game in Discord's screen share. Before, the game wasn't listed and **Entire screen** was black. See Sharing your game in the README.
+
 ## 0.3.0 (2026-11-10)
 
 - You can upload files with **+** → **Upload a File**. Discord's file picker used to open where you couldn't see it. Now it shows up on top of Discord, and Discord comes back when you close it. See Uploading files in the README.
